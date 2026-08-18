@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Avaliador de Programa de Integridade — PAR/CGU</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;background:#f4f6f8;color:#222;font-size:14px}
+  input,textarea,select{font-family:inherit;font-size:13px;padding:5px 8px;border:1px solid #ccc;border-radius:4px;width:100%}
+  input:focus,textarea:focus{outline:none;border-color:#0F6E56}
+  button{font-family:inherit;cursor:pointer}
+  ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState} = React;
+const CGU="#0F6E56", CGUL="#E1F5EE";
+
+const PRELS=[
+  {id:"p1",text:"A PJ pode ser qualificada como microempresa ou empresa de pequeno porte (LC 123/2016)?"},
+  {id:"p2",text:"O Programa de Integridade foi instituído ANTES da ocorrência do ato lesivo investigado no PAR?"},
+  {id:"p3",text:"A PJ participa de licitações públicas e/ou celebra contratos e convênios com a Administração Pública; ou o objeto do presente processo está relacionado à apuração do ato lesivo tipificado no inciso IV do art. 5º da Lei nº 12.846/2013?"},
+  {id:"p4",text:"A PJ participa ou participou de coligações, joint ventures, consórcios ou outros tipos de associações?"},
+  {id:"p5",text:"A PJ realiza ou já realizou operações de fusões e aquisições?"},
+  {id:"p6",text:"A PJ utiliza agentes intermediários (procuradores, despachantes, consultores, representantes comerciais) nas interações com o setor público?"},
+  {id:"p7",text:"Houve envolvimento de membros da alta direção nos atos lesivos investigados no presente PAR?"},
+  {id:"p8",text:"O Programa de Integridade é global, ou seja: o mesmo programa é aplicado pela PJ nos diversos países em que atua?"},
+];
+
+const COI_GRUPOS=[
+  {id:"g1",label:"1. Estrutura organizacional da PJ e sua relação com o Programa de Integridade",items:[
+    {id:"1.1",texto:"A PJ possui uma estrutura organizacional formalizada, isto é: prevista em estatuto, contrato social, regimento interno ou outro normativo?",peso:0.10,neg:false},
+    {id:"1.2",texto:"A estrutura organizacional está divulgada para o público interno?",peso:0.05,neg:false},
+    {id:"1.3",texto:"A PJ disponibiliza informações sobre sua estrutura organizacional em sua página eletrônica?",peso:0.05,neg:false},
+    {id:"1.4",texto:"A PJ possui em sua estrutura organizacional órgão(s) colegiado(s) para tratar de temas de ética e integridade que contam com a participação de membros da alta direção, como comitês e conselhos de ética?",peso:0.10,neg:false},
+    {id:"1.4.1",texto:"A forma como ocorre a participação dos membros da alta direção nesse(s) órgão(s) está formalizada?",peso:0.05,neg:false},
+    {id:"1.4.2",texto:"Foram apresentados documentos que comprovam a realização de mais de uma reunião nos últimos doze meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR?",peso:0.05,neg:false},
+  ]},
+  {id:"g2",label:"2. Comprometimento e apoio da alta direção da PJ ao Programa de Integridade",items:[
+    {id:"2.1",texto:"A PJ possui critérios formalizados para escolha dos membros da alta direção que incluem elementos de integridade, como o não envolvimento em atos de corrupção?",peso:0.10,neg:false},
+    {id:"2.2",texto:"A aprovação das principais políticas relacionadas ao Programa de Integridade é feita pelas mais elevadas instâncias decisórias da PJ?",peso:0.15,neg:false},
+    {id:"2.3",texto:"A alta direção da PJ participa da supervisão das atividades relacionadas ao Programa de Integridade?",peso:0.15,neg:false},
+    {id:"2.4",texto:"Os membros da alta direção da PJ participaram de treinamentos sobre o programa de integridade nos últimos 12 meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR?",peso:0.10,neg:false},
+    {id:"2.5",texto:"Os membros da alta direção envolvidos nos atos lesivos ora investigados permanecem em seus cargos ou em outros cargos da alta direção da PJ?",peso:-0.30,neg:true,condId:"p7",condVal:"sim"},
+    {id:"2.6",texto:"Foram apresentadas manifestações de apoio ao programa de integridade feitas pela PJ?",peso:0.10,neg:false},
+    {id:"2.6.1a",texto:"As manifestações de apoio ao programa apresentadas são pessoalizadas, isto é, são manifestações assinadas diretamente pelos membros da alta direção que atuam na PJ ora avaliada?",peso:0.05,neg:false},
+    {id:"2.6.1b",texto:"As manifestações foram feitas por membros da alta direção envolvidos nos atos lesivos investigados no PAR?",peso:-0.10,neg:true,condId:"p7",condVal:"sim"},
+    {id:"2.6.1c",texto:"As manifestações foram feitas de forma periódica (não isolada) nos últimos 12 meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR?",peso:0.05,neg:false},
+    {id:"2.6.1d",texto:"As manifestações possuem conteúdo que expressa uma mensagem de incentivo para os empregados adotarem uma conduta ética, seguindo os ditames do programa de integridade?",peso:0.05,neg:false},
+    {id:"2.6.1e",texto:"As manifestações são dirigidas ao público interno da PJ?",peso:0.03,neg:false},
+    {id:"2.6.1f",texto:"As manifestações são dirigidas ao público externo da PJ?",peso:0.02,neg:false},
+    {id:"2.7",texto:"A PJ deixou de apresentar evidências sobre o comprometimento e o apoio dos membros da alta direção ao programa de integridade. (Indicar SIM apenas se respondeu NÃO a todas as demais perguntas do item 2.)",peso:-0.30,neg:true},
+  ]},
+  {id:"g3",label:"3. Instância interna responsável pelo Programa de Integridade",items:[
+    {id:"3.1",texto:"A PJ possui uma instância interna responsável pelo programa de integridade?",peso:0.10,neg:false},
+    {id:"3.1.1a",texto:"A instância interna responsável pelo programa de integridade está formalmente constituída?",peso:0.05,neg:false},
+    {id:"3.1.1b",texto:"Tem suas atribuições expressamente previstas em documento formal, aprovado pela alta direção da PJ?",peso:0.05,neg:false},
+    {id:"3.1.1c",texto:"Constitui um departamento específico da PJ, com as atribuições relacionadas exclusivamente ao programa de integridade?",peso:0.05,neg:false},
+    {id:"3.1.1d",texto:"Possui autonomia decisória, não estando subordinada a nenhum outro departamento da PJ?",peso:0.05,neg:false},
+    {id:"3.2",texto:"Existem empregados dedicados exclusivamente às atividades relacionadas ao programa de integridade?",peso:0.05,neg:false},
+    {id:"3.3",texto:"O responsável pela instância interna possui como prerrogativa a possibilidade de se reportar diretamente ao nível hierárquico mais elevado da PJ?",peso:0.10,neg:false},
+    {id:"3.3.1",texto:"Essa prerrogativa é de fato exercida, sendo possível constatar que nos últimos 12 (doze) meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR, o representante da instância interna responsável pelo programa se reuniu com o nível hierárquico mais elevado da PJ mais de uma vez?",peso:0.10,neg:false},
+    {id:"3.4",texto:"O responsável pela instância interna possui garantias expressas que possibilitam o exercício das suas atribuições com independência e autoridade, como proteção contra punições arbitrárias, mandato, autonomia para solicitar documentos e entrevistar empregados de qualquer departamento da PJ?",peso:0.10,neg:false},
+    {id:"3.5",texto:"A PJ deixou de apresentar evidências sobre a existência e funcionamento de uma instância interna responsável pelo programa de integridade. (Indicar SIM apenas se respondeu NÃO a todas as demais perguntas do item 3.)",peso:-0.30,neg:true},
+  ]},
+  {id:"g4",label:"4. Código de Ética e Conduta",items:[
+    {id:"4.1",texto:"A PJ apresentou Código de Ética e Conduta, ou documento equivalente, disponível em português?",peso:0.10,neg:false},
+    {id:"4.1.1",texto:"A PJ deixou de apresentar Código de Ética e Conduta, ou documento equivalente, disponível em português. (Indicar SIM apenas se 4.1 for NÃO — pontuação negativa)",peso:-0.30,neg:true},
+    {id:"4.2",texto:"O documento apresentado foi formalmente aprovado pela alta direção da PJ?",peso:0.10,neg:false},
+    {id:"4.3a",texto:"Em relação ao conteúdo: inclui expressamente a ética e/ou a integridade entre os princípios ou valores da PJ?",peso:0.03,neg:false},
+    {id:"4.3b",texto:"Está alinhado com as especificidades da PJ, como áreas de atuação e grau de interação com a administração pública?",peso:0.03,neg:false},
+    {id:"4.3c",texto:"Está alinhado com a legislação anticorrupção brasileira, contendo vedações expressas à prática de corrupção e outros atos lesivos à administração pública?",peso:0.03,neg:false},
+    {id:"4.3d",texto:"Indica expressamente os responsáveis para dirimir dúvidas sobre sua aplicação?",peso:0.02,neg:false},
+    {id:"4.3e",texto:"Indica expressamente os canais para realização de denúncias de violações éticas/legais?",peso:0.02,neg:false},
+    {id:"4.3f",texto:"Prevê expressamente as garantias para proteção do denunciante de boa-fé?",peso:0.02,neg:false},
+    {id:"4.3g",texto:"Menciona a possibilidade de aplicação de sanções para aqueles que cometerem violações éticas/legais, independentemente do cargo ou função ocupado pelo infrator?",peso:0.03,neg:false},
+    {id:"4.4a",texto:"Em relação à acessibilidade: o documento possui uma linguagem de fácil compreensão?",peso:0.02,neg:false},
+    {id:"4.4b",texto:"Pode ser facilmente acessado pelos empregados da PJ, incluindo aqueles que não possuem acesso a computadores, se for o caso?",peso:0.02,neg:false},
+    {id:"4.4c",texto:"Encontra-se disponível na página eletrônica (site) da PJ?",peso:0.02,neg:false},
+    {id:"4.5",texto:"Foram realizadas ações de divulgação desse documento nos últimos 12 (doze) meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR?",peso:0.10,neg:false},
+    {id:"4.6",texto:"Foram realizados treinamentos sobre seu conteúdo para os empregados e administradores da PJ, nos últimos 12 (doze) meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR?",peso:0.10,neg:false},
+    {id:"4.6.1",texto:"Esses treinamentos alcançaram, pelo menos, 50% dos empregados da PJ?",peso:0.10,neg:false},
+  ]},
+  {id:"g5",label:"5. Aplicação do Código de Ética a terceiros",items:[
+    {id:"5.1a",texto:"O Código de Ética ou Conduta da PJ ou documento equivalente aplicável a terceiros proíbe expressamente a prática de corrupção e outros atos lesivos à administração pública por parte dos terceiros?",peso:0.04,neg:false},
+    {id:"5.1b",texto:"Indica os canais de denúncia disponíveis para os terceiros?",peso:0.03,neg:false},
+    {id:"5.1c",texto:"Menciona a possibilidade de aplicação de sanções para os terceiros que cometerem violações éticas/legais?",peso:0.03,neg:false},
+    {id:"5.2",texto:"A PJ disponibiliza versões desse documento ou informa como ele pode ser acessado por esses terceiros?",peso:0.05,neg:false},
+    {id:"5.3",texto:"A PJ solicita que os terceiros declarem expressamente estarem cientes da existência desse documento e de seu conteúdo?",peso:0.10,neg:false},
+    {id:"5.4",texto:"Foram oferecidos treinamentos, nos últimos 12 (doze) meses, sobre seu conteúdo aos principais terceiros com os quais a PJ se relaciona?",peso:0.05,neg:false},
+    {id:"5.4.1",texto:"A PJ deixou de apresentar evidências de realização de treinamentos sobre seus padrões de conduta e ética para os agentes intermediários que atuam em seu nome, nos últimos 12 (doze) meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR? (negativo — aplicável apenas se a PJ utiliza agentes intermediários)",peso:-0.10,neg:true,condId:"p6",condVal:"sim"},
+  ]},
+  {id:"g6",label:"6. Estrutura para realização de treinamentos relacionados ao Programa de Integridade",items:[
+    {id:"6.1",texto:"A PJ apresentou um planejamento para realização de treinamentos relacionados ao programa de integridade?",peso:0.10,neg:false},
+    {id:"6.2",texto:"A instância responsável pelo programa de integridade participa do planejamento, elaboração, aplicação e/ou contratação dos treinamentos sobre temas de integridade?",peso:0.10,neg:false},
+    {id:"6.3",texto:"Existem controles para verificar a participação dos empregados nos treinamentos?",peso:0.10,neg:false},
+    {id:"6.4",texto:"Existem mecanismos para verificar a retenção dos conteúdos abordados nos treinamentos?",peso:0.10,neg:false},
+  ]},
+];
+
+const MPI_GRUPOS=[
+  {id:"g7",label:"7. Realização de análise de riscos para elaboração e/ou aperfeiçoamento do Programa de Integridade",items:[
+    {id:"7.1",texto:"A PJ realizou uma análise de riscos que contempla expressamente riscos relacionados a corrupção e fraude?",peso:0.20,neg:false},
+    {id:"7.2",texto:"A análise de riscos foi realizada (ou refeita) nos últimos 24 (vinte e quatro) meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR?",peso:0.10,neg:false},
+    {id:"7.3",texto:"Há planejamento para que a análise de riscos seja realizada de forma periódica?",peso:0.10,neg:false},
+  ]},
+  {id:"g8",label:"8. Prevenção de fraudes e ilícitos nas interações da PJ com a Administração Pública",items:[
+    {id:"8.1a",texto:"A PJ apresentou políticas e procedimentos que vedam expressamente a concessão de vantagens indevidas, econômicas ou não, a agentes públicos?",peso:0.04,neg:false},
+    {id:"8.1b",texto:"Tratam do oferecimento de presentes, brindes e hospitalidades (refeições, entretenimento, viagem e hospedagem) a agentes públicos?",peso:0.04,neg:false},
+    {id:"8.1c",texto:"Tratam da prevenção de conflito de interesses nas relações com a Administração Pública, incluindo contratações de agentes públicos e seus familiares?",peso:0.04,neg:false},
+    {id:"8.1d",texto:"Estabelecem orientações e controles sobre temas como realização de reuniões, encontros e outros tipos de interações entre administradores e empregados da PJ com agentes públicos?",peso:0.04,neg:false},
+    {id:"8.1e",texto:"Estabelecem orientações específicas para que seus administradores, empregados ou terceiros agindo em nome da PJ cooperem com eventuais investigações e fiscalizações realizadas por órgãos, entidades ou agentes públicos?",peso:0.04,neg:false},
+    {id:"8.2",texto:"As políticas e procedimentos existentes podem ser facilmente acessados pelos empregados da PJ?",peso:0.05,neg:false},
+    {id:"8.3",texto:"Os conteúdos dessas políticas e procedimentos foram abordados nos treinamentos realizados pela PJ nos últimos 12 (doze) meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR?",peso:0.10,neg:false},
+    {id:"8.4a",texto:"Foram apresentados documentos que comprovam a aplicação nos últimos 12 (doze) meses das políticas e procedimentos que tratam do oferecimento de brindes, presentes e hospitalidade?",peso:0.04,neg:false},
+    {id:"8.4b",texto:"Foram apresentados documentos que comprovam a aplicação nos últimos 12 (doze) meses das políticas e procedimentos que tratam de conflito de interesses?",peso:0.04,neg:false},
+    {id:"8.4c",texto:"Foram apresentados documentos que comprovam a aplicação nos últimos 12 (doze) meses das políticas e procedimentos que tratam de interações com agentes públicos, como realização de reuniões e encontros?",peso:0.04,neg:false},
+    {id:"8.5",texto:"A PJ apresentou documentos que indicam o monitoramento da aplicação das políticas e procedimentos apresentados, como relatórios periódicos, estatísticas e indicadores?",peso:0.10,neg:false},
+    {id:"8.6",texto:"A PJ deixou de apresentar políticas e procedimentos adaptados à legislação brasileira.",peso:-0.10,neg:true},
+    {id:"8.7",texto:"A PJ deixou de apresentar evidências de que disponibiliza versões em português de suas políticas e procedimentos para as partes interessadas.",peso:-0.10,neg:true},
+    {id:"8.8",texto:"A PJ deixou de apresentar evidências sobre a existência de políticas e procedimentos relacionados às suas interações com a Administração Pública. (Indicar SIM apenas se respondeu NÃO a todas as demais perguntas do item 8.)",peso:-0.20,neg:true},
+  ]},
+  {id:"g9",label:"9. Políticas e procedimentos específicos para processos licitatórios e contratos administrativos",condId:"p3",condVal:"sim",items:[
+    {id:"9.1a",texto:"Nas políticas e procedimentos apresentados existem orientações sobre a conduta esperada, nos processos licitatórios e na execução de contratos administrativos, dos empregados da PJ?",peso:0.05,neg:false},
+    {id:"9.1b",texto:"Existem orientações sobre a conduta esperada dos terceiros que atuam em nome da PJ nos processos licitatórios e na execução de contratos administrativos?",peso:0.05,neg:false},
+    {id:"9.2a",texto:"Em relação ao conteúdo: as políticas e procedimentos tratam da relação da PJ com seus concorrentes, a fim de evitar práticas anticoncorrenciais que possibilitem a fraude em processos licitatórios e na execução de contratos administrativos?",peso:0.04,neg:false},
+    {id:"9.2b",texto:"Tratam do acompanhamento da execução dos contratos celebrados com a Administração Pública?",peso:0.04,neg:false},
+    {id:"9.2c",texto:"Indicam expressamente os responsáveis por autorizar a adoção de medidas relacionadas à participação em licitações e celebração/prorrogação de contratos administrativos?",peso:0.04,neg:false},
+    {id:"9.3",texto:"Foram realizados treinamentos específicos sobre as políticas e procedimentos existentes para o público responsável por sua aplicação, nos últimos 12 (doze) meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR?",peso:0.10,neg:false},
+    {id:"9.4",texto:"Foram apresentados documentos que comprovam a aplicação nos últimos 12 (doze) meses das políticas e procedimentos que tratam de licitações e execução de contratos celebrados com a Administração Pública?",peso:0.10,neg:false},
+    {id:"9.5",texto:"A PJ apresentou documentos que indicam o monitoramento da aplicação das políticas e procedimentos relacionados à participação em licitações e execução de contratos administrativos, como relatórios periódicos, estatísticas e indicadores?",peso:0.05,neg:false},
+    {id:"9.6",texto:"A PJ disponibiliza ao público externo informações sobre participação em licitações e contratos celebrados com a Administração Pública?",peso:0.05,neg:false},
+    {id:"9.7",texto:"A PJ deixou de apresentar políticas e procedimentos adaptados à legislação brasileira.",peso:-0.10,neg:true},
+    {id:"9.8",texto:"A PJ deixou de apresentar evidências de que disponibiliza versões em português de suas políticas e procedimentos para as partes interessadas.",peso:-0.10,neg:true},
+    {id:"9.9",texto:"A PJ deixou de apresentar evidências sobre a existência de políticas e procedimentos específicos para prevenção de fraudes e ilícitos em licitações e contratos administrativos. (Indicar SIM apenas se respondeu NÃO a todas as demais perguntas do item 9.)",peso:-0.20,neg:true},
+  ]},
+  {id:"g10",label:"10. Mecanismos e controles para precisão dos registros contábeis e demonstrações financeiras",items:[
+    {id:"10.1",texto:"A PJ possui fluxos de trabalho para elaboração dos lançamentos contábeis?",peso:0.05,neg:false},
+    {id:"10.2",texto:"A PJ possui regras que estabelecem a segregação de funções e a definição de níveis de aprovação de receitas e despesas?",peso:0.10,neg:false},
+    {id:"10.3",texto:"A PJ possui mecanismos para detectar receitas e despesas fora do padrão e/ou red flags durante a realização de lançamentos contábeis?",peso:0.10,neg:false},
+    {id:"10.4",texto:"A PJ possui regras que exigem a verificação do cumprimento do objeto do contrato para realização do pagamento?",peso:0.10,neg:false},
+    {id:"10.5",texto:"A PJ possui uma área de auditoria interna formalmente estruturada?",peso:0.10,neg:false},
+    {id:"10.6",texto:"A PJ está submetida à auditoria contábil independente?",peso:0.05,neg:false},
+  ]},
+  {id:"g11",label:"11. Diligências para contratação e supervisão de terceiros",items:[
+    {id:"11.1a",texto:"As diligências prévias realizadas pela PJ para contratação de terceiros incluem verificação do envolvimento de terceiros em casos de corrupção e práticas de fraude contra a administração pública?",peso:0.05,neg:false},
+    {id:"11.1b",texto:"Incluem verificação da existência de programas de integridade implementados nos terceiros avaliados, para mitigar os riscos de corrupção e fraude contra a administração pública?",peso:0.05,neg:false},
+    {id:"11.1c",texto:"Incluem a realização de diligências aprofundadas em relação aos terceiros para celebração de parcerias, como consórcios, associações, joint ventures e sociedades de propósito específico?",peso:0.05,neg:false,condId:"p4",condVal:"sim"},
+    {id:"11.2a",texto:"As regras sobre a realização de diligências prévias à contratação de terceiros favorecem a contratação de terceiros que apresentam baixo risco de integridade?",peso:0.04,neg:false},
+    {id:"11.2b",texto:"Estabelecem a necessidade de adoção de medidas para minimizar o risco da contratação de terceiro, caso o resultado das diligências realizadas indique alto risco de integridade na contratação?",peso:0.04,neg:false},
+    {id:"11.2c",texto:"Podem impossibilitar a contratação ou a formação da parceria, caso seja verificado alto risco de integridade do terceiro?",peso:0.04,neg:false},
+    {id:"11.3",texto:"Há segregação de função entre aqueles que realizam as diligências e os responsáveis por realizar a contratação?",peso:0.05,neg:false},
+    {id:"11.4",texto:"Há participação da área responsável pelo Programa de Integridade na realização das diligências?",peso:0.05,neg:false},
+    {id:"11.5",texto:"Foram apresentados documentos demonstrando que as diligências de terceiros são aplicadas pela PJ, como formulários preenchidos por terceiros, e-mails solicitando informações a terceiros e avaliações do perfil de risco dos terceiros?",peso:0.10,neg:false},
+    {id:"11.6a",texto:"Nos contratos celebrados com terceiros há cláusula estabelecendo a obrigatoriedade do cumprimento de normas éticas e a vedação de práticas de fraude e corrupção (cláusula anticorrupção)?",peso:0.05,neg:false},
+    {id:"11.6b",texto:"Há previsão de aplicação de penalidades e/ou de rescisão contratual em caso de descumprimento de normas éticas e prática de fraude e corrupção?",peso:0.05,neg:false},
+    {id:"11.7",texto:"A PJ apresentou cópias de contratos celebrados comprovando a existência de cláusula anticorrupção e da previsão de aplicação de penalidade pelo seu descumprimento?",peso:0.05,neg:false},
+    {id:"11.8",texto:"A PJ deixou de apresentar evidências de realização de diligências para contratação e supervisão de terceiros. (Indicar SIM apenas se respondeu NÃO a todas as demais perguntas do item 11.)",peso:-0.20,neg:true},
+  ]},
+  {id:"g12",label:"12. Diligências prévias a processos de fusões e aquisições",condId:"p5",condVal:"sim",items:[
+    {id:"12.1",texto:"A PJ realiza diligências específicas para verificar se as pessoas jurídicas envolvidas nas operações de fusão e aquisição possuem histórico de prática de atos lesivos previstos na Lei nº 12.846/2013 (Lei Anticorrupção) e outros ilícitos relacionados a corrupção e fraude a licitações e contratos administrativos?",peso:0.10,neg:false},
+    {id:"12.2",texto:"A PJ realiza diligências para verificar se os sócios das pessoas jurídicas envolvidas nas operações de fusão e aquisição possuem histórico de prática de ilícitos relacionados a corrupção e fraude a licitações e contratos administrativos?",peso:0.05,neg:false},
+    {id:"12.3",texto:"Caso o resultado das diligências indique a presença de histórico de prática de atos relacionados à corrupção e fraude a licitações e contratos administrativos, os procedimentos a serem adotados pela PJ para realização da operação estão previamente definidos?",peso:0.05,neg:false},
+    {id:"12.4",texto:"Há participação da área responsável pelo programa de integridade na decisão sobre realização ou não da operação?",peso:0.05,neg:false},
+  ]},
+  {id:"g13",label:"13. Canais de denúncia de irregularidades",items:[
+    {id:"13.1a",texto:"A PJ disponibiliza, no idioma português, canais para realização de denúncias para os seus empregados?",peso:0.05,neg:false},
+    {id:"13.1b",texto:"A PJ disponibiliza, no idioma português, canais para realização de denúncias para o público externo em geral?",peso:0.05,neg:false},
+    {id:"13.2a",texto:"Os canais de denúncia existentes indicam expressamente que podem ser utilizados para realização de denúncias relacionadas à corrupção e demais irregularidades previstas na Lei nº 12.846/2013?",peso:0.05,neg:false},
+    {id:"13.2b",texto:"Os canais indicam expressamente as garantias de proteção oferecidas aos denunciantes?",peso:0.05,neg:false},
+    {id:"13.2c",texto:"Os canais possibilitam o acompanhamento da apuração da denúncia pelo denunciante?",peso:0.05,neg:false},
+    {id:"13.3",texto:"Nos últimos 12 (doze) meses, contados a partir da data de apresentação dos relatórios de perfil e conformidade no PAR, a PJ realizou ações de divulgação dos canais de denúncia?",peso:0.10,neg:false},
+    {id:"13.4a",texto:"A PJ apresentou procedimentos formalizados que regulamentam a apuração da denúncia realizada?",peso:0.05,neg:false},
+    {id:"13.4b",texto:"A PJ apresentou procedimentos formalizados que estabelecem as sanções a serem aplicadas?",peso:0.05,neg:false},
+    {id:"13.5",texto:"Foram apresentadas estatísticas sobre denúncias recebidas e apuradas e/ou outras informações que indicam que os canais de denúncia são monitorados?",peso:0.10,neg:false},
+    {id:"13.5.1",texto:"A partir das estatísticas apresentadas é possível verificar uma proporcionalidade entre o número de denúncias recebidas e o número de denúncias apuradas?",peso:0.05,neg:false},
+    {id:"13.6",texto:"A PJ deixou de apresentar evidências de que disponibiliza canal para realização de denúncias; ou, ainda que disponibilize, deixou de apresentar evidências de existência de uma estrutura mínima para que as denúncias apresentadas sejam apuradas. (Indicar SIM apenas se respondeu NÃO a todas as demais perguntas do item 13.)",peso:-0.20,neg:true},
+  ]},
+];
+
+const APJ_ANT=[{id:"g14",label:"14. Programa de Integridade ANTERIOR à ocorrência do ato lesivo",items:[
+  {id:"14.1",texto:"A PJ, por meio dos controles existentes, conseguiu evitar a consumação da infração?",peso:0.10,neg:false},
+  {id:"14.2",texto:"A PJ comunicou o fato às autoridades competentes previamente à instauração do PAR?",peso:0.10,neg:false},
+  {id:"14.3",texto:"A PJ reparou integralmente o dano causado?",peso:0.10,neg:false},
+  {id:"14.4a",texto:"Em relação aos envolvidos no ato lesivo: a PJ afastou de seus quadros funcionais os envolvidos no ato lesivo?",peso:0.10,neg:false},
+  {id:"14.4b",texto:"Os envolvidos no ato lesivo, ainda que mantidos na PJ, foram afastados de cargos com poderes de administração, gestão e representação legal?",peso:0.10,neg:false},
+  {id:"14.4c",texto:"Os envolvidos no ato lesivo, ainda que mantidos na PJ, estão sendo monitorados?",peso:0.05,neg:false},
+  {id:"14.5",texto:"A PJ implementou procedimentos específicos (ou aprimorou os já existentes) para evitar que atos semelhantes ao investigado no PAR ocorram novamente?",peso:0.15,neg:false},
+  {id:"14.5.1",texto:"Os empregados responsáveis pela aplicação desses procedimentos receberam treinamentos específicos para implementá-los?",peso:0.10,neg:false},
+  {id:"14.5.2",texto:"A PJ apresentou documentos que comprovam a aplicação desses procedimentos específicos em sua rotina?",peso:0.10,neg:false},
+  {id:"14.6",texto:"A PJ realizou ou está realizando internamente investigação/auditoria para verificar se ocorreram atos semelhantes ao investigado no PAR? Ou contratou uma organização independente para realizar essa atividade?",peso:0.10,neg:false},
+  {id:"14.7",texto:"A PJ deixou de demonstrar qualquer atuação do programa de integridade em relação ao ato lesivo. (Indicar SIM apenas se respondeu NÃO a todas as demais perguntas do item 14.)",peso:-0.60,neg:true},
+]}];
+
+const APJ_POS=[{id:"g15",label:"15. Programa de Integridade POSTERIOR à ocorrência do ato lesivo",items:[
+  {id:"15.1a",texto:"Em relação aos envolvidos no ato lesivo: a PJ afastou de seus quadros funcionais os envolvidos no ato lesivo?",peso:0.10,neg:false},
+  {id:"15.1b",texto:"Os envolvidos no ato lesivo, ainda que mantidos na PJ, foram afastados de cargos com poderes de administração, gestão e representação legal?",peso:0.10,neg:false},
+  {id:"15.1c",texto:"Os envolvidos no ato lesivo, ainda que mantidos na PJ, estão sendo monitorados?",peso:0.05,neg:false},
+  {id:"15.2",texto:"A PJ implementou procedimentos específicos para evitar que atos semelhantes ao investigado no PAR ocorram novamente?",peso:0.15,neg:false},
+  {id:"15.2.1",texto:"Os empregados responsáveis pela aplicação desses procedimentos receberam treinamentos específicos para implementá-los?",peso:0.10,neg:false},
+  {id:"15.2.2",texto:"A PJ apresentou documentos que comprovam a aplicação desses procedimentos específicos em sua rotina?",peso:0.10,neg:false},
+  {id:"15.3",texto:"A PJ realizou ou está realizando internamente investigação/auditoria para verificar se ocorreram atos semelhantes ao investigado no PAR? Ou contratou uma organização independente para realizar essa atividade?",peso:0.10,neg:false},
+  {id:"15.4",texto:"A PJ deixou de demonstrar qualquer atuação do programa de integridade em relação ao ato lesivo. (Indicar SIM apenas se respondeu NÃO a todas as demais perguntas do item 15.)",peso:-0.60,neg:true},
+]}];
+
+function calcGrupos(grupos,resps,prels){
+  let t=0;
+  for(const g of grupos){
+    if(g.condId&&prels[g.condId]!==g.condVal)continue;
+    for(const item of g.items){
+      if(item.condId&&prels[item.condId]!==item.condVal)continue;
+      const r=resps[item.id];
+      if(!r||r==="nao")continue;
+      if(item.neg){if(r==="sim")t+=item.peso;}
+      else{t+=item.peso*(r==="sim"?1:0.5);}
+    }
+  }
+  return t;
+}
+
+function App(){
+  const [tab,setTab]=useState("cab");
+  const [cab,setCab]=useState({par:"",orgao:"",pj:"",cnpj:"",avaliador:"",siape:"",ato:"",data:""});
+  const [prels,setPrels]=useState({});
+  const [resps,setResps]=useState({});
+  const [evids,setEvids]=useState({});
+  const [obs,setObs]=useState({});
+
+  const isAnt=prels.p2==="sim";
+  const apjG=isAnt?APJ_ANT:APJ_POS;
+  const rawCOI=calcGrupos(COI_GRUPOS,resps,prels);
+  const rawMPI=calcGrupos(MPI_GRUPOS,resps,prels);
+  const rawAPJ=calcGrupos(apjG,resps,prels);
+  const COI=Math.max(0,Math.min(1.8,rawCOI));
+  const MPI=Math.max(0,Math.min(1.5,rawMPI));
+  const APJ=Math.max(-0.6,Math.min(isAnt?1.3:0.3,rawAPJ));
+  const raw=COI*MPI+APJ;
+  const score=raw>=1?Math.min(5,raw*1.25):raw;
+  const formal=raw<1;
+
+  const btn=(sel,t,label)=>{
+    const C={sim:CGU,parc:"#7B6000",nao:"#7B0000"};
+    const B={sim:CGUL,parc:"#FFF8DC",nao:"#FFF0EE"};
+    const a=sel===t;
+    return <button onClick={()=>setResps(x=>({...x,[sel.id||"__"]:t}))}
+      style={{padding:"3px 13px",fontSize:12,border:"1px solid "+(a?C[t]:"#ccc"),borderRadius:4,
+        background:a?B[t]:"#fff",color:a?C[t]:"#555",fontWeight:a?"600":"400",cursor:"pointer",marginRight:5}}>
+      {label}
+    </button>;
+  };
+
+  const renderItem=(item,setR)=>{
+    const na=item.condId&&prels[item.condId]!==item.condVal;
+    const r=resps[item.id]||"";
+    const e=evids[item.id]||"";
+    const o=obs[item.id]||"";
+    const opts=item.neg?["sim","nao"]:["sim","parc","nao"];
+    const labels={sim:"Sim",parc:"Parcialmente",nao:"Não"};
+    const C={sim:CGU,parc:"#7B6000",nao:"#7B0000"};
+    const B={sim:CGUL,parc:"#FFF8DC",nao:"#FFF0EE"};
+    const warn=(r==="sim"||r==="parc")&&!e;
+    return (
+      <div key={item.id} style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid #eee",
+        background:item.neg&&!na?"rgba(180,0,0,0.04)":"transparent",
+        padding:item.neg&&!na?"8px 10px":"0",borderRadius:item.neg&&!na?4:0}}>
+        <div style={{fontSize:13,marginBottom:6,color:item.neg&&!na?"#8B0000":"#222"}}>
+          <span style={{color:"#999",fontSize:11,marginRight:5}}>[{item.id}]</span>
+          {item.texto}
+          {item.neg&&!na&&<span style={{display:"inline-block",fontSize:10,background:"rgba(180,0,0,0.1)",color:"#8B0000",padding:"1px 6px",borderRadius:3,marginLeft:6}}>negativo: {item.peso}</span>}
+          {!item.neg&&!na&&<span style={{fontSize:10,color:"#aaa",marginLeft:5}}>peso: {item.peso}</span>}
+          {na&&<span style={{fontSize:10,background:"#f0f0f0",color:"#888",padding:"1px 6px",borderRadius:3,marginLeft:6}}>não aplicável</span>}
+        </div>
+        {!na&&<>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
+            {opts.map(t=>{
+              const a=r===t;
+              return <button key={t} onClick={()=>setResps(x=>({...x,[item.id]:t}))}
+                style={{padding:"3px 12px",fontSize:12,border:"1px solid "+(a?C[t]:"#ccc"),borderRadius:4,
+                  background:a?B[t]:"#fff",color:a?C[t]:"#555",fontWeight:a?"600":"400",cursor:"pointer"}}>
+                {labels[t]}
+              </button>;
+            })}
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <div style={{flex:1,minWidth:200}}>
+              <div style={{fontSize:11,color:warn?"#B8860B":"#666",marginBottom:2}}>
+                {(r==="sim"||r==="parc")?"Evidência (obrigatório):":"Evidência (opcional):"}
+              </div>
+              <input value={e} onChange={ev=>setEvids(x=>({...x,[item.id]:ev.target.value}))}
+                placeholder="Documento/folha do processo que suporta a avaliação..."
+                style={{borderColor:warn?"#B8860B":"#ccc"}}/>
+            </div>
+            <div style={{flex:1,minWidth:200}}>
+              <div style={{fontSize:11,color:"#666",marginBottom:2}}>Observações do avaliador (opcional):</div>
+              <input value={o} onChange={ev=>setObs(x=>({...x,[item.id]:ev.target.value}))}
+                placeholder="Considerações adicionais..."/>
+            </div>
+          </div>
+        </>}
+      </div>
+    );
+  };
+
+  const renderGrupos=(grupos)=>grupos.map(g=>{
+    const na=g.condId&&prels[g.condId]!==g.condVal;
+    return <div key={g.id} style={{marginBottom:14,border:"1px solid #dde",borderRadius:6,overflow:"hidden"}}>
+      <div style={{padding:"8px 14px",background:na?"#f5f5f5":CGUL,color:na?"#888":CGU,fontSize:13.5,fontWeight:500}}>
+        {g.label}{na&&<span style={{fontSize:11,fontWeight:400,marginLeft:8}}>— não aplicável (questão preliminar)</span>}
+      </div>
+      {!na&&<div style={{padding:"10px 14px"}}>{g.items.map(item=>renderItem(item))}</div>}
+    </div>;
+  });
+
+  const handlePrint=()=>{
+    const d=cab.data||new Date().toLocaleDateString("pt-BR");
+    const allG=[...COI_GRUPOS,...MPI_GRUPOS,...apjG];
+    let rows="";
+    for(const g of allG){
+      if(g.condId&&prels[g.condId]!==g.condVal)continue;
+      rows+=`<tr><td colspan="4" style="background:#E1F5EE;color:#0F6E56;font-weight:600;padding:6px 8px;font-size:11px">${g.label}</td></tr>`;
+      for(const item of g.items){
+        if(item.condId&&prels[item.condId]!==item.condVal)continue;
+        const r=resps[item.id];
+        const rL=r==="sim"?"Sim":r==="parc"?"Parcialmente":r==="nao"?"Não":"—";
+        const e=evids[item.id]||"—";
+        const o=obs[item.id]||"—";
+        rows+=`<tr><td style="font-size:10.5px;padding:4px 7px;border-bottom:0.5px solid #ddd;vertical-align:top;${item.neg?"color:#8B0000":""}">[${item.id}] ${item.texto}</td><td style="font-size:10.5px;padding:4px 7px;border-bottom:0.5px solid #ddd;text-align:center;white-space:nowrap;vertical-align:top">${rL}</td><td style="font-size:10.5px;padding:4px 7px;border-bottom:0.5px solid #ddd;vertical-align:top">${e}</td><td style="font-size:10.5px;padding:4px 7px;border-bottom:0.5px solid #ddd;vertical-align:top">${o}</td></tr>`;
+      }
+    }
+    const prelRows=PRELS.map(p=>`<tr><td>${p.text}</td><td>${prels[p.id]==="sim"?"Sim":prels[p.id]==="nao"?"Não":"—"}</td></tr>`).join("");
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Avaliação de PI — PAR ${cab.par}</title>
+<style>body{font-family:Arial,sans-serif;margin:1.5cm;font-size:12px;color:#222}
+h1{font-size:15px;color:#0F6E56;margin-bottom:2px}h2{font-size:12px;color:#0F6E56;margin:12px 0 4px;border-bottom:1px solid #1D9E75;padding-bottom:2px}
+table{width:100%;border-collapse:collapse;margin-bottom:8px}th{background:#0F6E56;color:#fff;padding:5px 7px;font-size:10.5px;text-align:left}
+td{padding:4px 7px;font-size:10.5px;vertical-align:top}.score{background:#E1F5EE;border:1px solid #1D9E75;padding:8px 12px;border-radius:5px;margin:8px 0}
+.snum{font-size:24px;font-weight:bold;color:#0F6E56}.formal{background:#FEE;border:1px solid #C00;padding:8px;border-radius:5px;color:#8B0000}
+.ft{font-size:9.5px;color:#888;margin-top:16px;border-top:1px solid #ccc;padding-top:5px}@media print{body{margin:1cm}}</style>
+</head><body>
+<h1>Relatório de Avaliação de Programa de Integridade em PAR</h1>
+<p style="font-size:10px;color:#555">Manual Prático CGU (2018/2022) · Decreto nº 11.129/2022 · Portaria CGU nº 909/2015 · Gerado em: ${new Date().toLocaleDateString("pt-BR")}</p>
+<h2>I. Identificação</h2>
+<table><tr><th>Campo</th><th>Informação</th></tr>
+<tr><td>Nº do PAR</td><td>${cab.par||"—"}</td></tr>
+<tr><td>Órgão/Entidade Processante</td><td>${cab.orgao||"—"}</td></tr>
+<tr><td>Pessoa Jurídica Processada</td><td>${cab.pj||"—"}</td></tr>
+<tr><td>CNPJ</td><td>${cab.cnpj||"—"}</td></tr>
+<tr><td>Avaliador</td><td>${cab.avaliador||"—"}</td></tr>
+<tr><td>Matrícula SIAPE</td><td>${cab.siape||"—"}</td></tr>
+<tr><td>Data da Avaliação</td><td>${d}</td></tr>
+<tr><td>Ato lesivo investigado</td><td>${cab.ato||"—"}</td></tr></table>
+<h2>II. Questões Preliminares</h2>
+<table><tr><th style="width:78%">Questão</th><th>Resposta</th></tr>${prelRows}</table>
+<h2>III. Avaliação Detalhada</h2>
+<table><tr><th style="width:44%">Item</th><th style="width:9%">Resposta</th><th style="width:23%">Evidência</th><th style="width:24%">Observações</th></tr>${rows}</table>
+<h2>IV. Resultado</h2>
+<table><tr><th>Bloco</th><th>Pontuação Obtida</th><th>Máximo</th></tr>
+<tr><td>COI — Cultura Organizacional de Integridade</td><td>${COI.toFixed(4)}%</td><td>1,8%</td></tr>
+<tr><td>MPI — Mecanismos, Políticas e Procedimentos de Integridade</td><td>${MPI.toFixed(4)}%</td><td>1,5%</td></tr>
+<tr><td>APJ — Atuação da PJ em Relação ao Ato Lesivo</td><td>${APJ.toFixed(4)}%</td><td>${isAnt?"1,3%":"0,3%"}</td></tr></table>
+<p><strong>Fórmula:</strong> [(COI × MPI) + APJ] = [(${COI.toFixed(4)} × ${MPI.toFixed(4)}) + ${APJ.toFixed(4)}] = ${raw.toFixed(4)}%</p>
+${raw>=1?`<p><strong>Fator de correção (Decreto 11.129/2022):</strong> ${raw.toFixed(4)}% × 1,25 = ${score.toFixed(4)}%</p>`:""}
+<div class="${formal?"formal":"score"}">
+${formal
+  ?"<strong>Programa meramente formal — score &lt; 1,0%</strong><br>Nos termos do §2º do art. 5º da Portaria CGU nº 909/2015, o Programa de Integridade não será considerado para fins de aplicação do percentual de redução de multa."
+  :`<span class='snum'>${score.toFixed(4)}%</span><br><span style='font-size:10.5px'>Percentual de redução da multa · PI ${isAnt?"anterior":"posterior"} ao ato lesivo · Limite máximo: ${isAnt?"5,0%":"3,75%"} · Score bruto: ${raw.toFixed(4)}%</span>`}
+</div>
+<div class="ft">Lei nº 12.846/2013 · Decreto nº 11.129/2022 · Portaria CGU nº 909/2015 · Portaria Conjunta CGU/STPC nº 006/2022 · Manual Prático de Avaliação de PI em PAR (CGU, 2018)</div>
+</body></html>`;
+    const w=window.open("","_blank");
+    w.document.write(html);
+    w.document.close();
+    setTimeout(()=>w.print(),600);
+  };
+
+  const TABS=[{id:"cab",l:"Identificação"},{id:"prel",l:"Quest. Preliminares"},{id:"coi",l:"Bloco COI"},{id:"mpi",l:"Bloco MPI"},{id:"apj",l:"Bloco APJ"},{id:"res",l:"Resultado"}];
+  const fwdBtn=(label,next)=><button onClick={()=>setTab(next)}
+    style={{marginTop:12,padding:"7px 18px",background:CGU,color:"#fff",border:"none",borderRadius:4,cursor:"pointer",fontSize:13.5,fontWeight:500}}>{label}</button>;
+
+  return (
+    <div style={{maxWidth:900,margin:"0 auto",paddingBottom:"5rem"}}>
+      {/* Header */}
+      <div style={{background:CGU,color:"#fff",padding:"12px 18px",borderRadius:"8px 8px 0 0"}}>
+        <div style={{fontSize:16,fontWeight:600}}>Avaliador de Programa de Integridade em PAR</div>
+        <div style={{fontSize:11.5,opacity:0.85,marginTop:3}}>CGU · Manual Prático 2018/2022 · Decreto nº 11.129/2022 · Portaria CGU nº 909/2015</div>
+      </div>
+      {/* Tabs */}
+      <div style={{display:"flex",flexWrap:"wrap",gap:4,background:"#f0f2f4",padding:"7px 10px",borderBottom:"1px solid #ddd"}}>
+        {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)}
+          style={{padding:"5px 12px",fontSize:12.5,border:"1px solid "+(tab===t.id?"#0F6E56":"#ccc"),borderRadius:4,
+            background:tab===t.id?CGUL:"#fff",color:tab===t.id?CGU:"#555",fontWeight:tab===t.id?600:400,cursor:"pointer"}}>
+          {t.l}
+        </button>)}
+      </div>
+      {/* Body */}
+      <div style={{padding:"18px",background:"#fff",minHeight:400}}>
+
+        {tab==="cab"&&<div>
+          <p style={{fontSize:13,color:"#555",marginBottom:14}}>Preencha os dados de identificação do processo antes de iniciar a avaliação.</p>
+          {[["par","Nº do PAR","Ex.: 00190.000001/2024-00"],["orgao","Órgão/Entidade Processante",""],["pj","Pessoa Jurídica Processada","Razão social"],["cnpj","CNPJ","00.000.000/0000-00"],["avaliador","Nome do Avaliador",""],["siape","Matrícula SIAPE",""]].map(([k,l,ph])=>(
+            <div key={k} style={{marginBottom:9}}>
+              <div style={{fontSize:11.5,color:"#555",marginBottom:2}}>{l}</div>
+              <input value={cab[k]} onChange={e=>setCab(c=>({...c,[k]:e.target.value}))} placeholder={ph}/>
+            </div>
+          ))}
+          <div style={{marginBottom:9}}>
+            <div style={{fontSize:11.5,color:"#555",marginBottom:2}}>Data da Avaliação</div>
+            <input type="date" value={cab.data} onChange={e=>setCab(c=>({...c,data:e.target.value}))}/>
+          </div>
+          <div style={{marginBottom:9}}>
+            <div style={{fontSize:11.5,color:"#555",marginBottom:2}}>Breve descrição do ato lesivo investigado</div>
+            <textarea value={cab.ato} onChange={e=>setCab(c=>({...c,ato:e.target.value}))} rows={3}
+              placeholder="Descreva sucintamente o ato lesivo objeto do PAR..."
+              style={{resize:"vertical"}}/>
+          </div>
+          {fwdBtn("Avançar para Questões Preliminares →","prel")}
+        </div>}
+
+        {tab==="prel"&&<div>
+          <p style={{fontSize:13,color:"#555",marginBottom:14}}>As respostas abaixo determinam a aplicabilidade de grupos de perguntas e ajustam pesos nos blocos avaliativos.</p>
+          {PRELS.map(item=>{
+            const r=prels[item.id]||"";
+            const C={sim:CGU,nao:"#7B0000"};
+            const B={sim:CGUL,nao:"#FFF0EE"};
+            return <div key={item.id} style={{marginBottom:11,padding:"10px 13px",border:"1px solid #ddd",borderRadius:6}}>
+              <div style={{fontSize:13.5,marginBottom:8}}>{item.text}</div>
+              <div style={{display:"flex",gap:6}}>
+                {["sim","nao"].map(t=>{const a=r===t;return <button key={t} onClick={()=>setPrels(p=>({...p,[item.id]:t}))}
+                  style={{padding:"3px 14px",fontSize:12.5,border:"1px solid "+(a?C[t]:"#ccc"),borderRadius:4,
+                    background:a?B[t]:"#fff",color:a?C[t]:"#555",fontWeight:a?600:400,cursor:"pointer"}}>
+                  {t==="sim"?"Sim":"Não"}
+                </button>;})}
+              </div>
+            </div>;
+          })}
+          {fwdBtn("Avançar para Bloco COI →","coi")}
+        </div>}
+
+        {tab==="coi"&&<div>
+          <div style={{display:"flex",gap:12,alignItems:"center",padding:"9px 13px",background:CGUL,border:"1px solid "+CGU,borderRadius:5,marginBottom:14}}>
+            <div><div style={{fontSize:11,color:CGU}}>Pontuação COI</div><div style={{fontSize:22,fontWeight:600,color:CGU}}>{COI.toFixed(3)}%</div></div>
+            <div style={{fontSize:12,color:"#555"}}>Máximo: 1,8% · Mínimo: 0%</div>
+          </div>
+          {renderGrupos(COI_GRUPOS)}
+          {fwdBtn("Avançar para Bloco MPI →","mpi")}
+        </div>}
+
+        {tab==="mpi"&&<div>
+          <div style={{display:"flex",gap:12,alignItems:"center",padding:"9px 13px",background:CGUL,border:"1px solid "+CGU,borderRadius:5,marginBottom:14}}>
+            <div><div style={{fontSize:11,color:CGU}}>Pontuação MPI</div><div style={{fontSize:22,fontWeight:600,color:CGU}}>{MPI.toFixed(3)}%</div></div>
+            <div style={{fontSize:12,color:"#555"}}>Máximo: 1,5% · Mínimo: 0%</div>
+          </div>
+          {renderGrupos(MPI_GRUPOS)}
+          {fwdBtn("Avançar para Bloco APJ →","apj")}
+        </div>}
+
+        {tab==="apj"&&<div>
+          <div style={{padding:"8px 12px",background:"#f5f5f5",border:"1px solid #ddd",borderRadius:5,marginBottom:11,fontSize:13}}>
+            {prels.p2===undefined
+              ?<span style={{color:"#8B0000"}}>⚠ Defina nas Questões Preliminares se o PI foi instituído antes ou após o ato lesivo.</span>
+              :prels.p2==="sim"
+                ?<span style={{color:CGU}}>PI <strong>anterior</strong> ao ato lesivo — máximo APJ: 1,3% | Mínimo: −0,6%</span>
+                :<span style={{color:"#856404"}}>PI <strong>posterior</strong> ao ato lesivo — máximo APJ: 0,3% | Mínimo: −0,6%</span>}
+          </div>
+          <div style={{display:"flex",gap:12,alignItems:"center",padding:"9px 13px",background:APJ>=0?CGUL:"rgba(180,0,0,0.07)",border:"1px solid "+(APJ>=0?CGU:"#C00"),borderRadius:5,marginBottom:14}}>
+            <div><div style={{fontSize:11,color:APJ>=0?CGU:"#8B0000"}}>Pontuação APJ</div><div style={{fontSize:22,fontWeight:600,color:APJ>=0?CGU:"#8B0000"}}>{APJ.toFixed(3)}%</div></div>
+          </div>
+          {renderGrupos(apjG)}
+          {fwdBtn("Ver Resultado Final →","res")}
+        </div>}
+
+        {tab==="res"&&<div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:14}}>
+            {[["COI",COI,"máx 1,8%"],["MPI",MPI,"máx 1,5%"],["APJ",APJ,isAnt?"máx 1,3%":"máx 0,3%"]].map(([l,v,m])=>(
+              <div key={l} style={{background:"#f5f7f5",borderRadius:5,padding:"10px 14px"}}>
+                <div style={{fontSize:11,color:"#666",marginBottom:2}}>{l}</div>
+                <div style={{fontSize:20,fontWeight:600,color:l==="APJ"&&v<0?"#8B0000":CGU}}>{v.toFixed(3)}%</div>
+                <div style={{fontSize:10.5,color:"#aaa"}}>{m}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{background:"#f5f7f5",borderRadius:5,padding:"10px 14px",marginBottom:12,fontSize:13}}>
+            <div style={{color:"#666",marginBottom:3}}>Fórmula: [(COI × MPI) + APJ]</div>
+            <div style={{fontFamily:"monospace",fontSize:13.5}}>
+              [({COI.toFixed(4)} × {MPI.toFixed(4)}) + {APJ.toFixed(4)}] = {raw.toFixed(4)}%
+            </div>
+            {raw>=1&&<div style={{fontFamily:"monospace",fontSize:13.5,marginTop:5}}>{raw.toFixed(4)}% × 1,25 = <strong>{score.toFixed(4)}%</strong></div>}
+          </div>
+          {formal
+            ?<div style={{background:"rgba(180,0,0,0.07)",border:"1px solid #C00",borderRadius:6,padding:"13px 16px",marginBottom:14}}>
+              <div style={{fontSize:14,fontWeight:600,color:"#8B0000",marginBottom:5}}>Programa meramente formal — score &lt; 1,0%</div>
+              <div style={{fontSize:12.5,color:"#8B0000"}}>Nos termos do §2º do art. 5º da Portaria CGU nº 909/2015, o Programa de Integridade não será considerado para fins de aplicação do percentual de redução da multa.</div>
+            </div>
+            :<div style={{background:CGUL,border:"1px solid "+CGU,borderRadius:6,padding:"13px 16px",marginBottom:14}}>
+              <div style={{fontSize:11.5,color:CGU,marginBottom:3}}>Percentual de redução da multa (art. 23, V do Decreto nº 11.129/2022)</div>
+              <div style={{fontSize:32,fontWeight:700,color:CGU}}>{score.toFixed(4)}%</div>
+              <div style={{fontSize:11.5,color:"#555",marginTop:3}}>PI {isAnt?"anterior":"posterior"} ao ato lesivo · Limite máximo: {isAnt?"5,0%":"3,75%"} · Score bruto: {raw.toFixed(4)}%</div>
+            </div>}
+          <div style={{fontSize:11,color:"#777",marginBottom:14,padding:"8px 12px",background:"#f5f5f5",borderRadius:5}}>
+            <strong>Base normativa:</strong> Lei nº 12.846/2013 · Decreto nº 11.129/2022 · Portaria CGU nº 909/2015 · Portaria Conjunta CGU/STPC nº 006/2022 · Manual Prático de Avaliação de PI em PAR (CGU, 2018)
+          </div>
+          <button onClick={handlePrint}
+            style={{padding:"8px 20px",background:CGU,color:"#fff",border:"none",borderRadius:4,cursor:"pointer",fontSize:14,fontWeight:600}}>
+            Gerar Relatório PDF
+          </button>
+          <span style={{fontSize:12,color:"#aaa",marginLeft:10}}>Abre nova janela para impressão/exportação como PDF.</span>
+        </div>}
+      </div>
+
+      {/* Barra de score */}
+      <div style={{position:"sticky",bottom:0,background:"#f0f2f4",borderTop:"1px solid #ddd",padding:"6px 16px",display:"flex",gap:18,alignItems:"center",flexWrap:"wrap",fontSize:13}}>
+        <span style={{color:"#777",fontSize:12}}>Score em tempo real:</span>
+        <span style={{color:CGU,fontWeight:600}}>COI {COI.toFixed(3)}%</span>
+        <span style={{color:CGU,fontWeight:600}}>MPI {MPI.toFixed(3)}%</span>
+        <span style={{color:APJ>=0?CGU:"#8B0000",fontWeight:600}}>APJ {APJ.toFixed(3)}%</span>
+        <span style={{fontWeight:700,color:formal?"#8B0000":CGU,marginLeft:4}}>
+          {formal?`⚠ Formal (${raw.toFixed(4)}%)`:`→ ${score.toFixed(4)}%`}
+        </span>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
